@@ -1,3 +1,4 @@
+import random
 import socket
 
 class MPDServerConn:
@@ -23,11 +24,63 @@ class MPDServerConn:
 
     self.conn.sendall(command_str)
 
-SERVERS = [('localhost', 4007)]
+  # reads upto \n
+  def read(self):
+    read_data = ''
+
+    while True:
+      read_data += self.conn.recv(1)
+      if read_data[-1] == '\n':
+        return read_data
+
+SERVERS = [
+  ('localhost', 4007), 
+  # ('10.31.83.163', 6667) 
+]
 
 server_conns = []
 
-LISTEN_PORT = 3458
+def read_until_newline(conn):
+  read_data = ''
+  while True:
+    read_data += conn.recv(1)
+    if read_data[-1] == '\n':
+      return read_data
+
+def handle_client(client_socket):
+  ok_message = server_conns[0].read()
+  client_socket.sendall(ok_message)
+
+  client_data = ''
+
+  in_command_list = False
+
+  while True:
+    c = client_socket.recv(1)
+
+    if not c:
+      print "Client closed connection"
+      client_socket.close()
+      break
+
+    client_data += c
+
+    if client_data[-1] == '\n':
+      print "Client executed command: " + client_data
+      for server_conn in server_conns:
+        server_conn.process_command(client_data)
+
+      if client_data[:-1] == 'command_list_ok_begin':
+        in_command_list = True
+      elif client_data[:-1] == 'command_list_ok_end':
+        in_command_list = False
+
+      if not in_command_list:
+        server_response = server_conns[0].read()
+        print "Server responded with: " + server_response
+        client_socket.sendall(server_response)
+
+      client_data = ''
 
 def main():
   for server_host, server_port in SERVERS:
@@ -35,30 +88,27 @@ def main():
     s.connect()
     server_conns.append(s)
 
-  print 'Listening on port %d' % LISTEN_PORT
 
   client_listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  client_listen_socket.bind(('', LISTEN_PORT))
+
+  listen_port = random.randrange(2000, 8000)
+  while True:
+    try:
+      client_listen_socket.bind(('', listen_port))
+      break
+    except:
+      listen_port += 1
+
   client_listen_socket.listen(10)
 
+  print "Listening on port %d" % listen_port
+
   while True:
-    print 'Waiting for client to connect to proxy...'
+    print "Waiting for client to connect to proxy..."
 
     try:
       client_socket, client_address = client_listen_socket.accept()
-
-      client_socket.sendall("OK MPD 0.19.8\n")
-
-      client_data = ''
-
-      while True:
-        print "Waiting for data from client..."
-        client_data += client_socket.recv(1)
-
-        if client_data.find('\n') != -1:
-          for server_conn in server_conns:
-            server_conn.process_command(client_data[:(client_data.find('\n') + 1)])
-          break
+      handle_client(client_socket)
     finally:
       print "Closing client socket after exception"
       client_socket.close()

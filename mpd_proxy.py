@@ -2,7 +2,7 @@ import random
 import socket
 import threading
 
-class MPDServerConn:
+class Connection:
   def __init__(self, host, port):
     self.host = host
     self.port = port
@@ -15,14 +15,17 @@ class MPDServerConn:
   def close(self):
     if not self.conn:
       return
-
     self.conn.close()
     self.conn = None
 
+class ServerConn(Connection):
   def process_command(self, command_str):
     if not self.conn:
       return
     self.conn.sendall(command_str)
+
+class ClientConn(Connection):
+  pass
 
 SERVERS = [
   ('localhost', 4007), 
@@ -31,21 +34,28 @@ SERVERS = [
 
 server_conns = []
 
+kill_thread = False
+
 def forward_to_client(client_conn, server_conn):
-  while True:
-    client_conn.sendall(server_conn.recv(1))
+  try:
+    while not kill_thread:
+      d = server_conn.recv(1)
+      if not d:
+        break
+      client_conn.sendall(d)
+  except:
+    pass
+  finally:
+    print "Exiting background thread"
 
 def handle_client(client_socket):
   client_data = ''
-
-  in_command_list = False
 
   while True:
     c = client_socket.recv(1)
 
     if not c:
       print "Client closed connection"
-      client_socket.close()
       break
 
     client_data += c
@@ -58,7 +68,7 @@ def handle_client(client_socket):
 
 def main():
   for server_host, server_port in SERVERS:
-    s = MPDServerConn(server_host, server_port)
+    s = ServerConn(server_host, server_port)
     s.connect()
     server_conns.append(s)
 
@@ -81,12 +91,20 @@ def main():
 
     try:
       client_socket, client_address = client_listen_socket.accept()
-      threading.Thread(target=forward_to_client,
-                       args=(client_socket, server_conns[0].conn)).start()
+      client_socket.settimeout(2.5)
+      t = threading.Thread(target=forward_to_client,
+                       args=(client_socket, server_conns[0].conn))
+      t.start()
       handle_client(client_socket)
+    except:
+      print "Received exception: " + sys.exc_info()[0]
     finally:
-      print "Closing client socket after exception"
+      kill_thread = True
+      t.join()
+      kill_thread = False
       client_socket.close()
+
+  print "?????????????"
 
 if __name__ == '__main__':
   main()

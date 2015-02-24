@@ -6,7 +6,7 @@ import random
 import socket
 import sys
 import threading
-
+import select 
 WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA = 0.2
 
 class ServerConn:
@@ -40,19 +40,25 @@ class ServerConn:
       self.approx_latency_ms = (WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA * latency_sample) + ((1 - WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA) * self.approx_latency_ms)
 
 SERVERS = [
-  ('localhost', 4007), 
-  ('10.34.134.122', 6667) 
+  ('localhost', 6667), 
+  # ('10.34.134.122', 6667) 
 ]
 
 server_conns = []
 
+print sys.argv
+hard_recovery = False
+if len(sys.argv) > 1:
+  hard_recovery = sys.argv[1]
 # kill_thread = False
+recovery_status = {}
 
 def forward_to_client(client_conn, server_conn):
   # try:
     # while not kill_thread:
   while True:
     d = server_conn.recv(1)
+    print d
       # if not d:
         # break
     client_conn.sendall(d)
@@ -78,14 +84,14 @@ def handle_client(client_socket):
       server_latencies = sorted([(server_conn.approx_latency_ms, server_conn) for server_conn in server_conns], reverse=True)
       begin = datetime.datetime.now()
       # server_latencies[0][1].process_command(client_data)
-      for i in range(1, len(server_latencies)):
-        break
-        prev_latency = server_latencies[i-1][0]
-        latency_diff = server_latencies[i][0] - prev_latency
-        while ((datetime.datetime.now() - begin).seconds / 1000.0) < latency_diff:
-          pass
-        begin = datetime.datetime.now()
-        server_latencies[i][1].process_command(client_data)
+      # for i in range(1, len(server_latencies)):
+      #   break
+      #   prev_latency = server_latencies[i-1][0]
+      #   latency_diff = server_latencies[i][0] - prev_latency
+      #   while ((datetime.datetime.now() - begin).seconds / 1000.0) < latency_diff:
+      #     pass
+      #   begin = datetime.datetime.now()
+      #   server_latencies[i][1].process_command(client_data)
       for latency, server_conn in server_latencies:
         server_conn.process_command(client_data)
       client_data = ''
@@ -95,7 +101,36 @@ def main():
     s = ServerConn(server_host, server_port)
     s.connect()
     server_conns.append(s)
+  serverSocks = []
+  
 
+  # get current state if doing hard recovery from the first server to respond
+  print hard_recovery
+  if hard_recovery:
+    for currentConn in server_conns:
+      currentConn.process_command("status\n")
+      serverSocks.append(currentConn.conn)
+    (sread, swrite, sexc) = select.select(serverSocks, [], [])
+    for sock in sread:
+      if sock in serverSocks:
+        msg = ''
+        while True:
+          currChar = sock.recv(1)
+          print currChar
+          if not currChar:
+            break
+          # hack, fix later
+          if len(msg.split("OK")) > 2:
+            break
+          msg += currChar
+        break
+    print msg
+    recovery_status["recovery_time"] = datetime.datetime.now()
+    for value in msg.split("\n"):
+      print value
+      recovery_status[value[0:value.find(":")]] = value[value.find(":"):].strip()
+    print recovery_status
+  
   client_listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
   listen_port = random.randrange(2000, 8000)

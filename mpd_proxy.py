@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
 import datetime
+import os
 import pyping
 import random
+import select
 import socket
 import sys
 import threading
@@ -41,31 +43,49 @@ class ServerConn:
 
 SERVERS = [
   ('localhost', 4007), 
-  ('10.34.134.122', 6667) 
+  # ('10.34.134.122', 6667) 
 ]
 
 server_conns = []
 
-# kill_thread = False
-
-def forward_to_client(client_conn, server_conn):
-  # try:
-    # while not kill_thread:
+def forward_to_client(client_conn, server_conn, pipe_read_fd):
+  # print "Starting forward_to_client thread"
   while True:
-    d = server_conn.recv(1)
-      # if not d:
-        # break
-    client_conn.sendall(d)
-  # except:
-    # pass
-  # finally:
-    # print "Exiting background thread"
+    rlist, _, _ = select.select([server_conn, pipe_read_fd], [], [])
+    read_from_pipe = False
+    for r in rlist:
+      if r == server_conn:
+        d = server_conn.recv(5)
+        print "Read", len(d), "bytes of data from server:"
+        print d
+        print
+        if not d:
+          break
+        client_conn.sendall(d)
+      elif r == pipe_read_fd:
+        print "Read data from pipe"
+        read_from_pipe = True
+    if read_from_pipe:
+      break
 
 def handle_client(client_socket):
   client_data = ''
 
+  for server_conn in server_conns:
+    server_conn.connect()
+
+  r, w = os.pipe()
+
+  t = threading.Thread(target=forward_to_client,
+                   args=(client_socket, server_conns[0].conn, r))
+  t.start()
+
   while True:
+    # print "Waiting for data from client"
+
     c = client_socket.recv(1)
+
+    # print "Got data from client"
 
     if not c:
       print "Client closed connection"
@@ -75,25 +95,31 @@ def handle_client(client_socket):
 
     if client_data[-1] == '\n':
       print "Client executed command: " + client_data
-      server_latencies = sorted([(server_conn.approx_latency_ms, server_conn) for server_conn in server_conns], reverse=True)
-      begin = datetime.datetime.now()
+      # server_latencies = sorted([(server_conn.approx_latency_ms, server_conn) for server_conn in server_conns], reverse=True)
+      # begin = datetime.datetime.now()
       # server_latencies[0][1].process_command(client_data)
-      for i in range(1, len(server_latencies)):
-        break
-        prev_latency = server_latencies[i-1][0]
-        latency_diff = server_latencies[i][0] - prev_latency
-        while ((datetime.datetime.now() - begin).seconds / 1000.0) < latency_diff:
-          pass
-        begin = datetime.datetime.now()
-        server_latencies[i][1].process_command(client_data)
-      for latency, server_conn in server_latencies:
+      # for i in range(1, len(server_latencies)):
+        # break
+        # prev_latency = server_latencies[i-1][0]
+        # latency_diff = server_latencies[i][0] - prev_latency
+        # while ((datetime.datetime.now() - begin).seconds / 1000.0) < latency_diff:
+          # pass
+        # begin = datetime.datetime.now()
+        # server_latencies[i][1].process_command(client_data)
+      for server_conn in server_conns:
         server_conn.process_command(client_data)
       client_data = ''
+
+  os.write(w, "A")
+  t.join()
+
+  for server_conn in server_conns:
+    server_conn.close()
 
 def main():
   for server_host, server_port in SERVERS:
     s = ServerConn(server_host, server_port)
-    s.connect()
+    # s.connect()
     server_conns.append(s)
 
   client_listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -114,20 +140,29 @@ def main():
     print "Waiting for client to connect to proxy..."
 
     try:
+      # print "a"
       client_socket, client_address = client_listen_socket.accept()
       print "accept() returned"
-      # client_socket.settimeout(2.5)
-      t = threading.Thread(target=forward_to_client,
-                       args=(client_socket, server_conns[0].conn))
-      t.start()
+      # print "b"
+      # print "c"
+      # client_socket.sendall("OK MPD 0.19.8\n")
+      # print "d"
+      # print "New thread =", t
+      # print "e"
       handle_client(client_socket)
-    except:
-      print "Received exception: " + sys.exc_info()[0]
+      # print "f"
+      print "Returned from handle_client"
+    # except:
+      # print "Received exception: " + sys.exc_info()[0]
     finally:
-      # kill_thread = True
-      t.join()
-      # kill_thread = False
+      # os.write(w, "A")
+      # t.join()
+      # print "t exited"
       client_socket.close()
+      print
+      print
+      print
+      print
 
 if __name__ == '__main__':
   main()

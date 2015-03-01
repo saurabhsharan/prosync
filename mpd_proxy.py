@@ -2,16 +2,17 @@
 
 import datetime
 import os
-import pyping
+import pythonPing.ping as ping
 import random
 import select
 import socket
+import pyping
 import sys
 import time
 import threading
 
 # Higher values will give more weight to later samples
-WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA = 0.2
+WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA = 0.4
 
 # The time (in seconds) to sleep for between latency measurements
 PAUSE_SECONDS_BETWEEN_LATENCY_SAMPLES = 1
@@ -55,24 +56,48 @@ class ServerConn:
 
   def _measure_latency(self, num_pings = 10):
     self._check_server_health()
-
+    latencies = []
     if not self.server_alive:
       return
     if self.approx_latency_ms == float('inf'):
-      self.approx_latency_ms = float(pyping.ping(self.host).avg_rtt)
+      delay = ping.Ping(self.host, timeout=200).do()
+      self.approx_latency_ms = delay
     for i in range(num_pings):
-      r = pyping.ping(self.host)
-      print "Return code of ping = %d" % r.ret_code
-      if r.ret_code != 0:
-        self.approx_latency_ms = float('inf')
+      try:
+        r = ping.Ping(self.host, timeout=200).do()
+        latencies.append(r)
+      except socket.error, e:
         self.server_alive = False
         return
-      latency_sample = float(r.avg_rtt)
-      self.approx_latency_ms = (WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA * latency_sample) + ((1 - WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA) * self.approx_latency_ms)
+      # r = pyping.ping(self.host)
+      # print "Return code of ping = %d" % r.ret_code
+      # if r.ret_code != 0:
+      #   self.approx_latency_ms = float('inf')
+      #   self.server_alive = False
+      #   return
+    centerOne = min(float(s) for s in latencies)
+    centerTwo = max(float(s) for s in latencies)
+    print centerOne
+    print centerTwo
+    clusterOne = []
+    clusterTwo = []
+    for i in range(0, len(latencies)):
+      if abs(centerOne - latencies[i]) >= abs(centerTwo - latencies[i]):
+        clusterOne.append(latencies[i])
+      else:
+        clusterTwo.append(latencies[i])
+    print clusterOne
+    print clusterTwo
+    if abs(len(clusterTwo) - len(clusterOne)) > (float(3)/4) * (len(latencies)):
+      toRemove = clusterOne if (len(clusterTwo) - len(clusterOne) > 0) else clusterTwo
+      for i in range(0, len(toRemove)):
+        latencies.remove(toRemove[i])
+    avg_latency = sum(latencies)/len(latencies)
+    self.approx_latency_ms = (WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA * avg_latency) + ((1 - WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA) * self.approx_latency_ms)
 
 SERVERS = [
-  ('localhost', 4007),
-  ('10.31.86.217', 6667)
+  ('localhost', 6667),
+  # ('10.31.86.217', 6667)
 ]
 
 server_conns = []
@@ -165,7 +190,7 @@ def ping_servers():
   while True:
     for server_conn in server_conns:
       server_conns_lock.acquire()
-      server_conn._measure_latency(3)
+      server_conn._measure_latency(10)
       server_conns_lock.release()
       if server_conn.server_alive:
         print "Server %s is alive, latency is %r" % (server_conn.host, server_conn.approx_latency_ms)

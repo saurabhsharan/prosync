@@ -65,7 +65,8 @@ class ServerConn:
     for i in range(num_pings):
       try:
         r = ping.Ping(self.host, timeout=200).do()
-        latencies.append(r)
+        if r:
+          latencies.append(r)
       except socket.error, e:
         self.server_alive = False
         return
@@ -96,8 +97,8 @@ class ServerConn:
     self.approx_latency_ms = (WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA * avg_latency) + ((1 - WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA) * self.approx_latency_ms)
 
 SERVERS = [
-  ('localhost', 6667),
-  # ('10.31.86.217', 6667)
+  ('localhost', 4007),
+  # ('10.31.83.176', 6667)
 ]
 
 server_conns = []
@@ -163,8 +164,16 @@ def handle_client(client_socket):
 
     if client_data[-1] == '\n':
       print "Client is about to execute command: " + client_data
-      # raw_input("Press enter to continue ")
+      retries = []
       server_conns_lock.acquire()
+      for server_conn in server_conns:
+        r = ping.Ping(server_conn.host, timeout=200).do()
+        if r > (server_conn.approx_latency_ms * 1.5):
+          retries.append(server_conn)
+      for retry in retries:
+        print "Re-sending ping to %s since previous ping looks like it dropped" % server_conn.host
+        ping.Ping(server_conn.host, timeout=200).do()
+      # raw_input("Press enter to continue ")
       server_latencies = sorted([(server_conn.approx_latency_ms, server_conn) for server_conn in server_conns], reverse=True)
       server_conns_lock.release()
       begin = datetime.datetime.now()

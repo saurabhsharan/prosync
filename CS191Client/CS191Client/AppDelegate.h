@@ -8,7 +8,11 @@
 
 #import <UIKit/UIKit.h>
 
-@interface AppDelegate : UIResponder <UIApplicationDelegate>
+@interface AppDelegate : UIResponder <UIApplicationDelegate, NSStreamDelegate>
+{
+    NSInputStream *inputStream;
+    NSOutputStream *outputStream;
+}
 
 @property (strong, nonatomic) UIWindow *window;
 

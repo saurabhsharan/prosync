@@ -16,8 +16,30 @@
 
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    // Override point for customization after application launch.
+    CFReadStreamRef readStream;
+    CFWriteStreamRef writeStream;
+    CFStreamCreatePairWithSocketToHost(NULL, (CFStringRef)@"localhost", 3000, &readStream, &writeStream);
+    
+    inputStream = (__bridge_transfer NSInputStream *)readStream;
+    outputStream = (__bridge_transfer NSOutputStream *)writeStream;
+    
+    [inputStream setDelegate:self];
+    [outputStream setDelegate:self];
+    [inputStream scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+    [outputStream scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+    [inputStream open];
+    [outputStream open];
+    
     return YES;
+}
+
+- (void)stream:(NSStream *)aStream handleEvent:(NSStreamEvent)eventCode
+{
+    if (eventCode == NSStreamEventHasBytesAvailable) {
+        // can read data
+    } else if (eventCode == NSStreamEventHasSpaceAvailable) {
+        // can write data
+    }
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application {

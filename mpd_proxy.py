@@ -117,7 +117,7 @@ server_conns_lock = threading.Lock()
 def forward_to_client(client_conn, server_list, pipe_read_fd):
   print "Starting forward_to_client thread"
   received_data = [""] * len(server_list)
-  num_servers_remaining = len(server_list)
+  server_finished = [False] * len(server_list)
   while True:
     read_list, _, _ = select.select(server_list + [pipe_read_fd], [], [])
     read_from_pipe = False
@@ -129,8 +129,8 @@ def forward_to_client(client_conn, server_list, pipe_read_fd):
         index = server_list.index(r)
         received_data[index] += d
         if received_data[index][-1] == '\n':
-          num_servers_remaining -= 1
-          if num_servers_remaining == 0:
+          server_finished[index] = True
+          if False not in server_finished:
             for j in range(len(server_list)):
               if received_data[index] != received_data[j]:
                 print "ERROR: Not all servers returned the same response:"
@@ -140,7 +140,7 @@ def forward_to_client(client_conn, server_list, pipe_read_fd):
             # raw_input("Press enter to continue ")
             client_conn.sendall(received_data[index])
             received_data = [""] * len(server_list)
-            num_servers_remaining = len(server_list)
+            server_finished = [False] * len(server_list)
       elif r == pipe_read_fd:
         print "Read data from pipe"
         read_from_pipe = True
@@ -183,8 +183,7 @@ def process_response(server_to_recover, server_list):
     server_to_recover.connect()
     server_to_recover.process_command("stop\n")
   if recovery_status["state"] == "play":
-    
-  print recovery_status
+    print recovery_status
 
 
 def get_status(server_to_recover):

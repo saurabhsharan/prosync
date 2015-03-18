@@ -99,8 +99,8 @@ class Ping(object):
         except socket.gaierror as e:
             self.print_unknown_host(e)
             sys.exit(-1)
-        else:
-            self.print_start()
+        # else:
+            # self.print_start()
 
         self.seq_number = 0
         self.send_count = 0
@@ -225,7 +225,7 @@ class Ping(object):
             if self.max_time < delay:
                 self.max_time = delay
 
-            self.print_success(delay, ip, packet_size, ip_header, icmp_header)
+            # self.print_success(delay, ip, packet_size, ip_header, icmp_header)
             return delay
         else:
             self.print_failed()

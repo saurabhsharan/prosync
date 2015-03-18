@@ -24,9 +24,12 @@ class ServerConn:
     self.approx_latency_ms = float('inf')
     self.conn = None
     self.server_alive = True
+    self.recover = False
 
   def connect(self):
     # self._measure_latency()
+    if self.conn:
+      return
     self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
       self.conn.connect((self.host, self.port))
@@ -50,7 +53,13 @@ class ServerConn:
     try:
       temp_socket.connect((self.host, self.port))
       temp_socket.close()
-      self.server_alive = True
+      if self.server_alive == False:
+        self.recover = True
+        self.server_alive = True
+        print "HEREEE"
+        get_status(self)
+        print "HERE? :("
+
     except Exception, e:
       self.server_alive = False
 
@@ -78,8 +87,8 @@ class ServerConn:
       #   return
     centerOne = min(float(s) for s in latencies)
     centerTwo = max(float(s) for s in latencies)
-    print centerOne
-    print centerTwo
+    # print centerOne
+    # print centerTwo
     clusterOne = []
     clusterTwo = []
     for i in range(0, len(latencies)):
@@ -87,8 +96,8 @@ class ServerConn:
         clusterOne.append(latencies[i])
       else:
         clusterTwo.append(latencies[i])
-    print clusterOne
-    print clusterTwo
+    # print clusterOne
+    # print clusterTwo
     if abs(len(clusterTwo) - len(clusterOne)) > (float(3)/4) * (len(latencies)):
       toRemove = clusterOne if (len(clusterTwo) - len(clusterOne) > 0) else clusterTwo
       for i in range(0, len(toRemove)):
@@ -97,7 +106,8 @@ class ServerConn:
     self.approx_latency_ms = (WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA * avg_latency) + ((1 - WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA) * self.approx_latency_ms)
 
 SERVERS = [
-  ('localhost', 4007),
+  ('localhost', 6667),
+  ('10.34.161.67', 4007)
   # ('10.31.83.176', 6667)
 ]
 
@@ -136,6 +146,59 @@ def forward_to_client(client_conn, server_list, pipe_read_fd):
         read_from_pipe = True
     if read_from_pipe:
       break
+
+
+def process_response(server_to_recover, server_list):
+  index = -1
+  received_data = ""
+  recovery_status = {}
+  counter = 0
+  satisfied = False
+  while True:
+    read_list, _, _ = select.select(server_list, [], [])
+    for r in read_list:
+      if server_to_recover.conn == r:
+        continue
+      if r in server_list:
+        if index == -1:
+          index = server_list.index(r)
+        if index != -1:
+          if server_list.index(r) != index:
+            continue
+          d = r.recv(5)
+          if not d:
+            continue
+          received_data += d
+          if received_data.find("OK\n") != -1:
+            satisfied = True
+            for value in received_data.split("\n"):
+              split_index = value.find(":")
+              if split_index != -1:
+                recovery_status[value[0:split_index]] = value[split_index + 1:].strip()
+      # elif r == pipe_read_fd:
+        # read_from_pipe = True
+    if satisfied:
+      break
+  if recovery_status["state"] == "stop":
+    server_to_recover.connect()
+    server_to_recover.process_command("stop\n")
+  if recovery_status["state"] == "play":
+    
+  print recovery_status
+
+
+def get_status(server_to_recover):
+  for server_conn in server_conns:
+    server_conn.connect()
+  print "Here..."
+  t = threading.Thread(target=process_response, args=(server_to_recover, [c.conn for c in server_conns]))
+  t.start()
+  for curr_conn in server_conns:
+    curr_conn.process_command("status\n")
+  t.join()
+  print "Thread is exiting..."
+  for server_conn in server_conns:
+    server_conn.close()
 
 def handle_client(client_socket):
   client_data = ''

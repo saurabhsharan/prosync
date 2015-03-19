@@ -114,7 +114,7 @@ class ServerConn:
 
 SERVERS = [
   ('localhost', 4007),
-  ('10.31.87.33', 6667),
+  ('10.31.83.207', 6667),
   # ('10.31.83.110', 4007)
   # ('10.31.83.176', 6667)
 ]
@@ -301,12 +301,23 @@ def ping_servers():
         print "Server %s is alive, latency is %r" % (server_conn.host, server_conn.approx_latency_ms)
       else:
         print "Server %s is dead" % server_conn.host
+      with open("latencies.tsv", "a") as myfile:
+        myfile.write("%s\t%r\t%r\n" % (server_conn.host, server_conn.approx_latency_ms if server_conn.server_alive else -1, time.time()))
     time.sleep(PAUSE_SECONDS_BETWEEN_LATENCY_SAMPLES)
 
 def main():
   for server_host, server_port in SERVERS:
     s = ServerConn(server_host, server_port)
     server_conns.append(s)
+
+  create_new_latencies_file = True
+
+  if len(sys.argv) > 1 and sys.argv[1] == "1":
+    create_new_latencies_file = False
+
+  if create_new_latencies_file:
+    with open("latencies.tsv", "w") as myfile:
+      myfile.write("host\tlatency\ttime\n")
 
   ping_thread = threading.Thread(target=ping_servers)
   ping_thread.start()

@@ -107,7 +107,7 @@ class ServerConn:
 
 SERVERS = [
   ('localhost', 6667),
-  ('10.34.161.67', 4007)
+  ('10.31.83.110', 4007)
   # ('10.31.83.176', 6667)
 ]
 
@@ -128,7 +128,7 @@ def forward_to_client(client_conn, server_list, pipe_read_fd):
           continue
         index = server_list.index(r)
         received_data[index] += d
-        if received_data[index][-1] == '\n':
+        if received_data[index] == "OK\n" or received_data[index].find("\nOK\n") != -1 or received_data[index].startswith("OK MPD 0.19.0\n") == True:
           server_finished[index] = True
           if False not in server_finished:
             for j in range(len(server_list)):
@@ -183,6 +183,13 @@ def process_response(server_to_recover, server_list):
     server_to_recover.connect()
     server_to_recover.process_command("stop\n")
   if recovery_status["state"] == "play":
+    server_to_recover.connect()
+    a = str(float(recovery_status["elapsed"]) + server_conns[index].approx_latency_ms/2.0 + server_to_recover.approx_latency_ms/2.0)
+    command = "command_list_ok_begin\nseekid " + "\"" + recovery_status["songid"] + "\" \"" + a + "\"\ncommand_list_end\n"
+    print "Command!" + command
+    server_to_recover.process_command(command)
+    # send playid recovery_status["songid"]
+    # followed by recovery_status["elapsed"] + latency of the other guy/2 + self latency/2
     print recovery_status
 
 

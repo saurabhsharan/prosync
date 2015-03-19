@@ -34,6 +34,7 @@ class ServerConn:
     try:
       self.conn.connect((self.host, self.port))
     except:
+      self.conn = None
       self.approx_latency_ms = float('inf')
       self.server_alive = False
 
@@ -44,7 +45,7 @@ class ServerConn:
     self.conn = None
 
   def process_command(self, command_str):
-    if not self.conn:
+    if not self.conn or not self.server_alive:
       return
     self.conn.sendall(command_str)
 
@@ -69,14 +70,20 @@ class ServerConn:
     if not self.server_alive:
       return
     if self.approx_latency_ms == float('inf'):
-      delay = ping.Ping(self.host, timeout=200).do()
-      self.approx_latency_ms = delay
+      while True:
+        delay = ping.Ping(self.host, timeout=1000).do()
+        if delay:
+          self.approx_latency_ms = delay
+          break
     for i in range(num_pings):
       try:
-        r = ping.Ping(self.host, timeout=200).do()
+        r = ping.Ping(self.host, timeout=1000).do()
         if r:
           latencies.append(r)
       except socket.error, e:
+        if self.conn:
+          self.conn.close()
+          self.conn = None
         self.server_alive = False
         return
       # r = pyping.ping(self.host)
@@ -106,8 +113,9 @@ class ServerConn:
     self.approx_latency_ms = (WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA * avg_latency) + ((1 - WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA) * self.approx_latency_ms)
 
 SERVERS = [
-  ('localhost', 6667),
-  ('10.31.83.110', 4007)
+  ('localhost', 4007),
+  ('10.31.87.33', 6667),
+  # ('10.31.83.110', 4007)
   # ('10.31.83.176', 6667)
 ]
 
@@ -184,7 +192,26 @@ def process_response(server_to_recover, server_list):
     server_to_recover.process_command("stop\n")
   if recovery_status["state"] == "play":
     server_to_recover.connect()
-    a = str(float(recovery_status["elapsed"]) + server_conns[index].approx_latency_ms/2.0 + server_to_recover.approx_latency_ms/2.0)
+    server_to_recover.process_command("status\n")
+
+    server_to_recover_status_data = ""
+    while True:
+      d = server_to_recover.conn.recv(5)
+      if not d:
+        break
+      server_to_recover_status_data += d
+      if server_to_recover_status_data.find("OK\n") != -1:
+        break
+    server_to_recover_status_dict = {}
+    for value in server_to_recover_status_data.split("\n"):
+      split_index = value.find(":")
+      if split_index != -1:
+        server_to_recover_status_dict[value[0:split_index]] = value[split_index + 1:].strip()
+
+    print "Status for server that just recovered:"
+    print server_to_recover_status_dict
+
+    a = str(float(recovery_status["elapsed"]) + server_conns[index].approx_latency_ms/2000.0 + server_to_recover.approx_latency_ms/2000.0 - 1.75)
     command = "command_list_ok_begin\nseekid " + "\"" + recovery_status["songid"] + "\" \"" + a + "\"\ncommand_list_end\n"
     print "Command!" + command
     server_to_recover.process_command(command)
@@ -215,7 +242,7 @@ def handle_client(client_socket):
   r, w = os.pipe()
 
   t = threading.Thread(target=forward_to_client,
-                   args=(client_socket, [c.conn for c in server_conns], r))
+                   args=(client_socket, [c.conn for c in server_conns if c.conn], r))
   t.start()
 
   while True:
@@ -236,12 +263,12 @@ def handle_client(client_socket):
       retries = []
       server_conns_lock.acquire()
       for server_conn in server_conns:
-        r = ping.Ping(server_conn.host, timeout=200).do()
+        r = ping.Ping(server_conn.host, timeout=1000).do()
         if r > (server_conn.approx_latency_ms * 1.5):
           retries.append(server_conn)
       for retry in retries:
         print "Re-sending ping to %s since previous ping looks like it dropped" % server_conn.host
-        ping.Ping(server_conn.host, timeout=200).do()
+        ping.Ping(server_conn.host, timeout=1000).do()
       # raw_input("Press enter to continue ")
       server_latencies = sorted([(server_conn.approx_latency_ms, server_conn) for server_conn in server_conns], reverse=True)
       server_conns_lock.release()

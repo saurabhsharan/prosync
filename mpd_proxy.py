@@ -113,8 +113,8 @@ class ServerConn:
     self.approx_latency_ms = (WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA * avg_latency) + ((1 - WEIGHTED_MOVING_AVERAGE_COEFF_ALPHA) * self.approx_latency_ms)
 
 SERVERS = [
-  ('localhost', 4007),
-  ('10.31.83.207', 6667),
+  ('localhost', 6667),
+  ('10.31.83.110', 4007),
   # ('10.31.83.110', 4007)
   # ('10.31.83.176', 6667)
 ]
@@ -139,12 +139,12 @@ def forward_to_client(client_conn, server_list, pipe_read_fd):
         if received_data[index] == "OK\n" or received_data[index].find("\nOK\n") != -1 or received_data[index].startswith("OK MPD 0.19.0\n") == True:
           server_finished[index] = True
           if False not in server_finished:
-            for j in range(len(server_list)):
-              if received_data[index] != received_data[j]:
-                print "ERROR: Not all servers returned the same response:"
-                print "Server %d: %r" % (index, received_data[index])
-                print "Server %d: %r" % (j, received_data[j])
-            print "Sending data back to client: " + received_data[index]
+            # for j in range(len(server_list)):
+            #   if received_data[index] != received_data[j]:
+            #     print "ERROR: Not all servers returned the same response:"
+            #     print "Server %d: %r" % (index, received_data[index])
+            #     print "Server %d: %r" % (j, received_data[j])
+            # print "Sending data back to client: " + received_data[index]
             # raw_input("Press enter to continue ")
             client_conn.sendall(received_data[index])
             received_data = [""] * len(server_list)
@@ -208,12 +208,12 @@ def process_response(server_to_recover, server_list):
       if split_index != -1:
         server_to_recover_status_dict[value[0:split_index]] = value[split_index + 1:].strip()
 
-    print "Status for server that just recovered:"
-    print server_to_recover_status_dict
+    # print "Status for server that just recovered:"
+    # print server_to_recover_status_dict
 
     a = str(float(recovery_status["elapsed"]) + server_conns[index].approx_latency_ms/2000.0 + server_to_recover.approx_latency_ms/2000.0 - 1.75)
     command = "command_list_ok_begin\nseekid " + "\"" + recovery_status["songid"] + "\" \"" + a + "\"\ncommand_list_end\n"
-    print "Command!" + command
+    # print "Command!" + command
     server_to_recover.process_command(command)
     # send playid recovery_status["songid"]
     # followed by recovery_status["elapsed"] + latency of the other guy/2 + self latency/2
@@ -274,12 +274,14 @@ def handle_client(client_socket):
       server_conns_lock.release()
       begin = datetime.datetime.now()
       server_latencies[0][1].process_command(client_data)
+      print "Processing command with server  " + server_latencies[0][1].host + " " + str(server_latencies[0][0])
       for i in range(1, len(server_latencies)):
         prev_latency = server_latencies[i-1][0]
         latency_diff = server_latencies[i][0] - prev_latency
         while ((datetime.datetime.now() - begin).seconds / 1000.0) < latency_diff:
           pass
         server_latencies[i][1].process_command(client_data)
+        print "Processing command with server latency " + server_latencies[i][1].host + " " + str(server_latencies[i][0])
         begin = datetime.datetime.now()
       # for server_conn in server_conns:
         # server_conn.process_command(client_data)

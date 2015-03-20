@@ -16,19 +16,20 @@ A sample `mpd_servers` file could look like the following:
 `
 localhost 6667 gshubham ~/Desktop/Music/
 `
+
 `
 10.31.87.33 3000 saurabh ~/CS191/Music/
 `
 
-2. Run 'sudo ./mpd_proxy mpd_servers` and the proxy will start up.
+3. Run 'sudo ./mpd_proxy mpd_servers` and the proxy will start up.
 
-3. You can now issue commands from the client to the port that the proxy is listening on! Enjoy!
+4. You can now issue commands from the client to the port that the proxy is listening on! Enjoy!
 
 Optional
 
-4. We also support simple music file uploads to the MPD servers. The optional arguments in `mpd_servers` are meant for this purpose. In order to upload a given song to all the MPD servers and add it to their database, you can run ` sudo ./mpd_upload.py <path-to-file-name-to-be-uploaded> mpd_servers`, followed by `mpc --port <proxy-port> update` to update all the MPD music databases.
+5. We also support simple music file uploads to the MPD servers. The optional arguments in `mpd_servers` are meant for this purpose. In order to upload a given song to all the MPD servers and add it to their database, you can run ` sudo ./mpd_upload.py <path-to-file-name-to-be-uploaded> mpd_servers`, followed by `mpc --port <proxy-port> update` to update all the MPD music databases.
 
-5. We also worked on generating visualizations of latencies from the proxy to all the servers. To view the visualization when the proxy is running, just start a simple python HTTP server `python SimpleHTTPServer &` in the Prosync directory and visit `localhost:8000/graph.html` in your web browser!  
+6. We also worked on generating visualizations of latencies from the proxy to all the servers. To view the visualization when the proxy is running, just start a simple python HTTP server `python SimpleHTTPServer &` in the Prosync directory and visit `localhost:8000/graph.html` in your web browser!  
 
 
 Fault tolerance

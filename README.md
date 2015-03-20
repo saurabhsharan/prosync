@@ -14,7 +14,7 @@ Running Prosync
 A sample `mpd_servers` file could look like the following:
 
 `
-localhost 6667 gshubham ~/Desktop/Music/
+localhost 6667 gshubham ~/Desktop/Music/ \n
 10.31.87.33 3000 saurabh ~/CS191/Music/
 `
 

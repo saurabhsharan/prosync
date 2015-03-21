@@ -1,13 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-
-    <link href="http://getbootstrap.com/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <link href="http://getbootstrap.com/examples/justified-nav/justified-nav.css" rel="stylesheet">
-
+    <link href="bootstrap.min.css" rel="stylesheet">
+    <link href="justified-nav.css" rel="stylesheet">
     <style>
         .axis path {
             fill: none;
@@ -19,72 +14,37 @@
             font-size: 13px;
         }
     </style>
-
 </head>
-
 <body>
-
     <div class="container">
-
         <div class="jumbotron">
-
             <svg id="visualisation" width="1000" height="500"></svg>
-            <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+            <script src="d3.v3.min.js" charset="utf-8"></script>
             <script>
                 function InitChart() {
-                  d3.tsv("latencies.tsv", function(d) {
+                  d3.tsv("http://localhost:8000/latencies.tsv", function(d) {
                     return {
                         host: d.host,
                         latency: +d.latency,
                         time: +d.time
                     };
                   }, function(error, rows) {
-                        console.log(rows);
-                  });
+                    var localhost_data = [];
+                    var remote_data = [];
 
-                    var data = [{
-                        "sale": "202",
-                        "year": "2000"
-                    }, {
-                        "sale": "215",
-                        "year": "2002"
-                    }, {
-                        "sale": "179",
-                        "year": "2004"
-                    }, {
-                        "sale": "199",
-                        "year": "2006"
-                    }, {
-                        "sale": "134",
-                        "year": "2008"
-                    }, {
-                        "sale": "176",
-                        "year": "2010"
-                    }];
+                    var min_latency = -1, max_latency = -1;
 
+                    for (i = 0; i < rows.length; i++) {
+                      if (rows[i].host == "localhost")
+                        localhost_data.push(rows[i]);
+                      else
+                        remote_data.push(rows[i]);
 
-                    var data2 = [{
-                        "sale": "152",
-                        "year": "2000"
-                    }, {
-                        "sale": "189",
-                        "year": "2002"
-                    }, {
-                        "sale": "179",
-                        "year": "2004"
-                    }, {
-                        "sale": "199",
-                        "year": "2006"
-                    }, {
-                        "sale": "134",
-                        "year": "2008"
-                    }, {
-                        "sale": "176",
-                        "year": "2010"
-                    }];
+                      if (max_latency == -1 || rows[i].latency > max_latency)
+                        max_latency = rows[i].latency;
+                    }
 
-
-
+                    d3.selectAll("svg > *").remove();
                     var vis = d3.select("#visualisation"),
                         WIDTH = 1000,
                         HEIGHT = 500,
@@ -95,9 +55,9 @@
                             left: 50
                         },
 
-                        xScale = d3.scale.linear().range([MARGINS.left, WIDTH - MARGINS.right]).domain([2000, 2010]),
-
-                        yScale = d3.scale.linear().range([HEIGHT - MARGINS.top, MARGINS.bottom]).domain([134, 215]),
+                        xScale = d3.scale.linear().range([MARGINS.left, WIDTH - MARGINS.right]).domain([localhost_data[0].time - 1, localhost_data[localhost_data.length - 1].time + 1]),
+ 
+                        yScale = d3.scale.linear().range([HEIGHT - MARGINS.top, MARGINS.bottom]).domain([0, max_latency]),
 
                         xAxis = d3.svg.axis()
                         .scale(xScale),
@@ -105,10 +65,6 @@
                         yAxis = d3.svg.axis()
                         .scale(yScale)
                         .orient("left");
-
-
-
-                    
 
                     vis.append("svg:g")
                         .attr("class", "x axis")
@@ -122,35 +78,31 @@
 
                     var lineGen = d3.svg.line()
                         .x(function(d) {
-                            return xScale(d.year);
+                            return xScale(d.time);
                         })
                         .y(function(d) {
-                            return yScale(d.sale);
+                            return yScale(d.latency);
                         })
                         .interpolate("basis");
 
                     vis.append('svg:path')
-                        .attr('d', lineGen(data))
+                        .attr('d', lineGen(localhost_data))
                         .attr('stroke', 'green')
                         .attr('stroke-width', 2)
                         .attr('fill', 'none');
 
                     vis.append('svg:path')
-                        .attr('d', lineGen(data2))
+                        .attr('d', lineGen(remote_data))
                         .attr('stroke', 'blue')
                         .attr('stroke-width', 2)
                         .attr('fill', 'none');
-
-
-
-
+                  });
                 }
+
                 InitChart();
+                setInterval(InitChart, 250);
             </script>
         </div>
-
     </div>
-
 </body>
-
 </html>

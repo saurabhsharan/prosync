@@ -289,12 +289,14 @@ def handle_client(client_socket):
       server_conns_lock.release()
       begin = datetime.datetime.now()
       server_latencies[0][1].process_command(client_data)
+      print "Processing command with server  " + server_latencies[0][1].host + " " + str(server_latencies[0][0])
       for i in range(1, len(server_latencies)):
         prev_latency = server_latencies[i-1][0]
         latency_diff = server_latencies[i][0] - prev_latency
         while ((datetime.datetime.now() - begin).seconds / 1000.0) < latency_diff:
           pass
         server_latencies[i][1].process_command(client_data)
+        print "Processing command with server latency " + server_latencies[i][1].host + " " + str(server_latencies[i][0])
         begin = datetime.datetime.now()
       client_data = ''
 

@@ -3,7 +3,7 @@ Prosync: the MPD Proxy
 
 Overview
 ---------------
-Prosync is an MPD proxy that accurately synchronizes commands over a cluster of MPD servers from a single MPC client. The key insight was to make it frictionless to integrate with existing systems, and therefore we focused on making the proxy independent of the client and the servers, and is only dependent in a few cases on the MPD protocol.
+Prosync is an MPD proxy that accurately synchronizes commands over a cluster of MPD servers from a single MPC client. The key insight was to make it frictionless to integrate with existing systems, and therefore we focused on making the proxy independent of the client and the servers, and is only dependent in a few cases on the MPD protocol. Thus, Prosync works with any MPD client and any set of MPD servers.
 
 
 Running Prosync
@@ -78,7 +78,11 @@ If the proxy dies, the servers will continue to play the song as if the proxy ne
 
 If a server dies, the proxy will detect this (within a second due to ping requests) and stop sending messages to that server. When the server comes back up, the proxy will first request the status of all the other live servers, and then communicate that status to the proxy that just came back up and has stale state.
 
-Testing
+Visualizations
 --------------- 
+Since we were initially having trouble correlating packet loss with the latency measurements and how it eas affecting them, we decided to do a real-time visualizations of how the latencies of all servers vary over time. We used d3.js to a simple line plot in javascript. The proxy logs all the latencies every second to `latencies.tsv` and we redraw the line chart every 500 milliseconds with the new data.
 
 
+Development
+--------------- 
+While developing, we were running Prosync on two Macbook Pros, with one laptop running the proxy, an MPD server, and the client. The other laptop only ran the MPD server. 

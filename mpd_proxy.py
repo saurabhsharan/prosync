@@ -69,6 +69,7 @@ class ServerConn:
         self.server_alive = True
         get_status(self)
     except Exception, e:
+      print "Couldn't open socket to %s:%d" % (self.host, self.port)
       self.server_alive = False
 
   def measure_latency(self, num_pings = 10):
@@ -132,7 +133,7 @@ def forward_to_client(client_conn, server_list, pipe_read_fd):
   Uses select() to listen for new data from all of the server connections in server_list. Waits for all servers to reply and sends the message back to the client. 
   When the pipe specified by pipe_read_fd is written to with any contents, this function terminates.
   """
-  # print "Starting forward_to_client thread"
+  print "Starting forward_to_client thread"
   received_data = [""] * len(server_list)
   server_finished = [False] * len(server_list)
   while True:
@@ -153,7 +154,7 @@ def forward_to_client(client_conn, server_list, pipe_read_fd):
                 print "ERROR: Not all servers returned the same response:"
                 print "Server %d: %r" % (index, received_data[index])
                 print "Server %d: %r" % (j, received_data[j])
-            # print "Sending data back to client: " + received_data[index]
+            print "Sending data back to client: " + received_data[index]
             # raw_input()
             client_conn.sendall(received_data[index])
             received_data = [""] * len(server_list)
@@ -260,20 +261,20 @@ def handle_client(client_socket):
   t.start()
 
   while True:
-    # print "Waiting for data from client"
+    print "Waiting for data from client"
 
     c = client_socket.recv(1)
 
-    # print "Got data from client"
+    print "Got data from client"
 
     if not c:
-      # print "Client closed connection"
+      print "Client closed connection"
       break
 
     client_data += c
 
     if client_data[-1] == '\n':
-      # print "Client is about to execute command: " + client_data
+      print "Client is about to execute command: " + client_data
       retries = []
       server_conns_lock.acquire()
       for server_conn in server_conns:
@@ -314,12 +315,12 @@ def ping_servers():
   while True:
     for server_conn in server_conns:
       server_conns_lock.acquire()
-      server_conn._measure_latency(10)
+      server_conn.measure_latency(10)
       server_conns_lock.release()
-      # if server_conn.server_alive:
-        # print "Server %s is alive, latency is %r" % (server_conn.host, server_conn.approx_latency_ms)
-      # else:
-        # print "Server %s is dead" % server_conn.host
+      if server_conn.server_alive:
+        print "Server %s is alive, latency is %r" % (server_conn.host, server_conn.approx_latency_ms)
+      else:
+        print "Server %s is dead" % server_conn.host
       with open("latencies.tsv", "a") as myfile:
         myfile.write("%s\t%r\t%r\n" % (server_conn.host, server_conn.approx_latency_ms if server_conn.server_alive else 0, time.time()))
     time.sleep(PAUSE_SECONDS_BETWEEN_LATENCY_SAMPLES)
@@ -331,8 +332,8 @@ def parse_server_file(mpd_server_file_path):
   for line in f:
     if line.strip() == "":
       continue
-    ip_addr_port = line.split(" ")[0]
-    result.append(ip_addr_port.split(":"))
+    ip_addr_port = line.split(" ")[0].split(":")
+    result.append((ip_addr_port[0], int(ip_addr_port[1])))
   return result
 
 def main():
@@ -366,16 +367,16 @@ def main():
     except:
       listen_port += 1
 
-  # print "Listening on port %d" % listen_port
+  print "Listening on port %d" % listen_port
 
   client_listen_socket.listen(10)
 
   while True:
-    # print "Waiting for client to connect to proxy..."
+    print "Waiting for client to connect to proxy..."
     client_socket, client_address = client_listen_socket.accept()
-    # print "accept() returned"
+    print "accept() returned"
     handle_client(client_socket)
-    # print "Returned from handle_client"
+    print "Returned from handle_client"
     client_socket.close()
 
 if __name__ == '__main__':

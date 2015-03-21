@@ -10,16 +10,16 @@ Running Prosync
 ---------------
 1. Download Prosync by cloning this [repository](https://github.com/gshubham/cs191)
 
-2. Make a file called `mpd_servers`, which should contain the tuple `(server IP address, port, name of user on the server [optional], music directory on the server [optional])` separated by newlines.
+2. Make a file called `mpd_servers`, which should contain the tuple `(server IP address:port, name of user on the server [optional], music directory on the server [optional])` separated by newlines.
 
 A sample `mpd_servers` file could look like the following:
 
 `
-localhost 6667 gshubham ~/Desktop/Music/
+localhost:6667 gshubham ~/Desktop/Music/
 `
 
 `
-10.31.87.33 3000 saurabh ~/CS191/Music/
+10.31.87.33:3000 saurabh ~/CS191/Music/
 `
 
 3. Run `sudo ./mpd_proxy mpd_servers` and the proxy will start up.

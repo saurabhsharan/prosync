@@ -330,14 +330,14 @@ def parse_server_file(mpd_server_file_path):
   result = []
   f = open(mpd_server_file_path)
   for line in f:
-    if line.strip() == "":
+    if line.strip() == "" or line[0] == "#":
       continue
     ip_addr_port = line.split(" ")[0].split(":")
     result.append((ip_addr_port[0], int(ip_addr_port[1])))
   return result
 
-def main():
-  servers = parse_server_file(sys.argv[1])
+def main(server_filename):
+  servers = parse_server_file(server_filename)
 
   for server_host, server_port in servers:
     s = ServerConn(server_host, server_port)
@@ -380,8 +380,5 @@ def main():
     client_socket.close()
 
 if __name__ == '__main__':
-  if len(sys.argv) < 2:
-    print "Usage: ./mpd_proxy.py path-to-mpd-servers-file [recovery-mode]"
-    sys.exit(1)
-
-  main()
+  server_filename = sys.argv[1] if len(sys.argv) >= 2 else "mpd_servers"
+  main(server_filename=server_filename)

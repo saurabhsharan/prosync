@@ -100,8 +100,6 @@ class ServerConn:
         return
     centerOne = min(float(s) for s in latencies)
     centerTwo = max(float(s) for s in latencies)
-    # print centerOne
-    # print centerTwo
     clusterOne = []
     clusterTwo = []
     for i in range(0, len(latencies)):
@@ -109,8 +107,6 @@ class ServerConn:
         clusterOne.append(latencies[i])
       else:
         clusterTwo.append(latencies[i])
-    # print clusterOne
-    # print clusterTwo
     if abs(len(clusterTwo) - len(clusterOne)) > (float(3)/4) * (len(latencies)):
       toRemove = clusterOne if (len(clusterTwo) - len(clusterOne) > 0) else clusterTwo
       for i in range(0, len(toRemove)):
@@ -155,12 +151,10 @@ def forward_to_client(client_conn, server_list, pipe_read_fd):
                 print "Server %d: %r" % (index, received_data[index])
                 print "Server %d: %r" % (j, received_data[j])
             print "Sending data back to client: " + received_data[index]
-            # raw_input()
             client_conn.sendall(received_data[index])
             received_data = [""] * len(server_list)
             server_finished = [False] * len(server_list)
       elif r == pipe_read_fd:
-        # print "Read data from pipe"
         read_from_pipe = True
     if read_from_pipe:
       break
@@ -170,7 +164,6 @@ def process_response(server_to_recover, server_list):
   This function should only be run in its own thread.
   Waits for any one server in server_list to reply with information about its status (note that this function does not actually ask each server for its status). It then synchronizes the status of server_to_recover with the first server to reply.
   """
-  # print "Starting process_response"
   index = -1
   received_data = ""
   recovery_status = {}
@@ -199,39 +192,16 @@ def process_response(server_to_recover, server_list):
                 recovery_status[value[0:split_index]] = value[split_index + 1:].strip()
     if satisfied:
       break
-  # print recovery_status
   if recovery_status["state"] == "stop":
-    # print "Sending stop to server"
     server_to_recover.connect()
     server_to_recover.process_command("stop\n")
   if recovery_status["state"] == "play":
     server_to_recover.connect()
     server_to_recover.process_command("status\n")
 
-    # server_to_recover_status_data = ""
-    # while True:
-      # d = server_to_recover.conn.recv(5)
-      # if not d:
-        # break
-      # server_to_recover_status_data += d
-      # if server_to_recover_status_data.find("OK\n") != -1:
-        # break
-    # server_to_recover_status_dict = {}
-    # for value in server_to_recover_status_data.split("\n"):
-      # split_index = value.find(":")
-      # if split_index != -1:
-        # server_to_recover_status_dict[value[0:split_index]] = value[split_index + 1:].strip()
-
-    # print "Status for server that just recovered:"
-    # print server_to_recover_status_dict
-
-    # send playid recovery_status["songid"]
-    # followed by recovery_status["elapsed"] + latency of the other guy/2 + self latency/2
     a = str(float(recovery_status["elapsed"]) + server_conns[index].approx_latency_ms/2000.0 + server_to_recover.approx_latency_ms/2000.0 - 1)
     command = "command_list_ok_begin\nseekid " + "\"" + recovery_status["songid"] + "\" \"" + a + "\"\ncommand_list_end\n"
-    # print "Command!" + command
     server_to_recover.process_command(command)
-    # print recovery_status
 
 
 def get_status(server_to_recover):
@@ -284,7 +254,6 @@ def handle_client(client_socket):
           with open("packetloss.tsv", 'a') as myfile:
             myfile.write("%s\t%r\n" % (server_conn.host, time.time()))
       for retry in retries:
-        # print "Re-sending ping to %s since previous ping looks like it dropped" % server_conn.host
         ping.Ping(server_conn.host, timeout=1000).do()
       server_latencies = sorted([(server_conn.approx_latency_ms, server_conn) for server_conn in server_conns], reverse=True)
       server_conns_lock.release()

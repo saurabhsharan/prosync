@@ -8,7 +8,7 @@ Prosync is an MPD proxy that accurately synchronizes commands over a cluster of 
 
 Running Prosync
 ---------------
-1. Download Prosync by cloning this [repository](https://github.com/gshubham/cs191)
+1. Download Prosync by cloning this [repository](https://github.com/saurabhsharan/prosync)
 
 2. Make a file called `mpd_servers`, which should contain the tuple `(server IP address:port, name of user on the server [optional], music directory on the server [optional])` separated by newlines.
 
